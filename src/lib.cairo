@@ -2,29 +2,32 @@ use cairo_verifier::deserialization::stark::StarkProofWithSerde;
 
 mod component;
 
-#[starknet::interface]
-trait IFactRegistry<TContractState> {
-    fn verify_and_register_fact(ref self: TContractState, stark_proof: StarkProofWithSerde);
-    fn is_valid(self: @TContractState, fact: felt252) -> bool;
-}
-
+#[derive(Drop, PartialEq, Serde, starknet::Store)]
 enum ProofState {
     NotFound,
     Pending,
     Verified,
 }
 impl ProofStateDefault of Default<ProofState> {
-    fn default() -> Self {
+    fn default() -> ProofState {
         ProofState::NotFound
     }
 }
 
+#[starknet::interface]
+trait IFactRegistry<TContractState> {
+    fn register_fact(ref self: TContractState, fact: felt252);
+    fn verify_and_register_fact(ref self: TContractState, stark_proof: StarkProofWithSerde);
+    fn is_valid(self: @TContractState, fact: felt252) -> ProofState;
+}
+
 #[starknet::contract]
 mod FactRegistry {
+    use core::poseidon::{Poseidon, PoseidonImpl, HashStateImpl};
     use cairo_verifier::{
         deserialization::stark::StarkProofWithSerde, stark::{StarkProof, StarkProofTrait},
     };
-    use core::poseidon::{Poseidon, PoseidonImpl, HashStateImpl};
+    use super::{ProofState, ProofStateDefault};
 
     #[storage]
     struct Storage {
@@ -33,7 +36,7 @@ mod FactRegistry {
 
     #[abi(embed_v0)]
     impl FactRegistryImpl of super::IFactRegistry<ContractState> {
-        fn register_fact(ref self: @ContractState, fact: felt252) {
+        fn register_fact(ref self: ContractState, fact: felt252) {
             self.facts.write(fact, ProofState::Pending);
         }
         fn verify_and_register_fact(ref self: ContractState, stark_proof: StarkProofWithSerde) {
