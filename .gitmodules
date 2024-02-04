@@ -1,0 +1,3 @@
+[submodule "starknet-foundry"]
+	path = starknet-foundry
+	url = git@github.com:neotheprogramist/starknet-foundry.git
